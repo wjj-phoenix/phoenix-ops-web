@@ -1,35 +1,46 @@
 <script lang="ts" setup>
 import { reactive, ref, watch } from "vue"
-import { createTableDataApi, deleteTableDataApi, updateTableDataApi, getTableDataApi } from "@/api/table"
-import { type CreateOrUpdateTableRequestData, type GetTableData } from "@/api/table/types/table"
+import { createTableDataApi, deleteTableDataApi, updateTableDataApi, featchedMachineApi } from "@/api/machine"
+import { type CreateOrUpdateTableRequestData, type Machine } from "@/api/machine/types/machine"
 import { type FormInstance, type FormRules, ElMessage, ElMessageBox } from "element-plus"
 import { Search, CirclePlus, Delete, Download, RefreshRight, Edit } from "@element-plus/icons-vue"
 import { usePagination } from "@/hooks/usePagination"
 import { cloneDeep } from "lodash-es"
 import emitter from '@/utils/emitter';
+import SshDialog from './models/ssh-dialog.vue';
+import SftpDialog from './models/sftp-dialog.vue';
 
 const loading = ref<boolean>(false)
 const { paginationData, handleCurrentChange, handleSizeChange } = usePagination()
 
+const terminalDialogRef: any = ref(null);
+
 //#region 增
 const DEFAULT_FORM_DATA: CreateOrUpdateTableRequestData = {
-  id: undefined,
-  username: "",
-  password: ""
+  name: "",
+  ip: "",
+  port: 22,
+  operatingSystem: "",
+  isVirtual: false,
+  remark: "",
+  createdUser: "",
+  createdTime: "",
+  hostUsers: [],
 }
 const dialogVisible = ref<boolean>(false)
 const formRef = ref<FormInstance | null>(null)
 const formData = ref<CreateOrUpdateTableRequestData>(cloneDeep(DEFAULT_FORM_DATA))
 const formRules: FormRules<CreateOrUpdateTableRequestData> = {
-  username: [{ required: true, trigger: "blur", message: "请输入用户名" }],
-  password: [{ required: true, trigger: "blur", message: "请输入密码" }]
+  name: [{ required: true, trigger: "blur", message: "请输入用户名" }],
+  ip: [{ required: true, trigger: "blur", message: "请输入密码" }]
 }
 const handleCreateOrUpdate = () => {
   formRef.value?.validate((valid: boolean, fields) => {
     if (!valid) return console.error("表单校验不通过", fields)
     loading.value = true
-    const api = formData.value.id === undefined ? createTableDataApi : updateTableDataApi
-    api(formData.value)
+    // const api = formData.value.id === undefined ? createTableDataApi : updateTableDataApi
+
+    /* api(formData.value)
       .then(() => {
         ElMessage.success("操作成功")
         dialogVisible.value = false
@@ -37,7 +48,7 @@ const handleCreateOrUpdate = () => {
       })
       .finally(() => {
         loading.value = false
-      })
+      }) */
   })
 }
 const resetForm = () => {
@@ -47,8 +58,8 @@ const resetForm = () => {
 //#endregion
 
 //#region 删
-const handleDelete = (row: GetTableData) => {
-  ElMessageBox.confirm(`正在删除用户：${row.username}，确认删除？`, "提示", {
+const handleDelete = (row: Machine) => {
+  ElMessageBox.confirm(`正在删除用户：${row.name}，确认删除？`, "提示", {
     confirmButtonText: "确定",
     cancelButtonText: "取消",
     type: "warning"
@@ -62,44 +73,63 @@ const handleDelete = (row: GetTableData) => {
 //#endregion
 
 //#region 改
-const handleUpdate = (row: GetTableData) => {
+const handleUpdate = (row: Machine) => {
   dialogVisible.value = true
   formData.value = cloneDeep(row)
 }
 //#endregion
 
 //#region 查
-const tableData = ref<GetTableData[]>([])
+const machines = ref<Machine[]>([])
 const searchFormRef = ref<FormInstance | null>(null)
 const searchData = reactive({
   username: "",
   phone: ""
 })
 
-const sshTerminal = (row: GetTableData) => {
-  emitter.emit('openSshTerminalDialog', true)
-  formData.value = cloneDeep(row)
+const sshTerminal = (row: Machine) => {
+  console.log(row)
+  // emitter.emit('openSshTerminalDialog', true)
+  // const ac = row.selectAuthCert.name;
+  const terminalId = Date.now();
+  /*
+   调用了一个名为 terminalDialogRef 的组件的 open 方法，传入了一个包含多个属性的对象作为参数。其中，属性包括 terminalId、socketUrl、minTitle、minDesc 和 meta。
+   * terminalId 表示终端的ID。
+   * socketUrl 是通过调用函数 getMachineTerminalSocketUrl(ac) 得到的终端的socket URL。
+   * minTitle 是一个字符串，由 ${row.name} [${(terminalId + '').slice(-2)}] 组成，用来描述终端的标题。
+   * minDesc 是一个字符串，由 ${row.selectAuthCert.username}@${row.ip}:${row.port} (${row.name}) 组成，用来描述终端的概要信息。
+   * meta 是包含了一系列有关终端的其他元信息的对象，其中可能包含了关于终端的更多详细信息。
+   * 总结：以上代码调用了终端对话框组件的 open 方法，并通过传递参数的方式展示了有关终端的信息，包括终端ID、socket URL、标题、概要信息以及其他详细信息。
+   */
+  terminalDialogRef.value.open({
+    terminalId,
+    // socketUrl: getMachineTerminalSocketUrl(ac),
+    minTitle: `${row.name} [${(terminalId + '').slice(-2)}]`, // 截取terminalId最后两位区分多个terminal
+    // minDesc: `${row.selectAuthCert.username}@${row.ip}:${row.port} (${row.name})`,
+    meta: row,
+  });
 }
 
-const sftpTerminal = (row: GetTableData) => {
-  dialogVisible.value = true
-  formData.value = cloneDeep(row)
+const sftpTerminal = (row: Machine) => {
+  console.log(row)
+  emitter.emit('openSftpTerminalDialog', true)
+  // formData.value = cloneDeep(row)
 }
 
 const getTableData = () => {
   loading.value = true
-  getTableDataApi({
-    currentPage: paginationData.currentPage,
-    size: paginationData.pageSize,
-    username: searchData.username || undefined,
-    phone: searchData.phone || undefined
+  featchedMachineApi({
+    page: paginationData.currentPage,
+    limit: paginationData.pageSize,
+    condition: undefined,
   })
     .then(({ data }) => {
       paginationData.total = data.total
-      tableData.value = data.list
+      console.log('data', data)
+      machines.value = data.rows
     })
     .catch(() => {
-      tableData.value = []
+      machines.value = []
     })
     .finally(() => {
       loading.value = false
@@ -107,10 +137,6 @@ const getTableData = () => {
 }
 const handleSearch = () => {
   paginationData.currentPage === 1 ? getTableData() : (paginationData.currentPage = 1)
-}
-const resetSearch = () => {
-  searchFormRef.value?.resetFields()
-  handleSearch()
 }
 //#endregion
 
@@ -149,15 +175,10 @@ watch([() => paginationData.currentPage, () => paginationData.pageSize], getTabl
         </div>
       </div>
       <div class="table-wrapper">
-        <el-table :data="tableData" style="width: 100%">
+        <el-table :data="machines" style="width: 100%">
           <el-table-column flex="left" type="selection" width="50" align="center" />
-          <el-table-column flex="left" prop="username" label="主机名称" align="center" width="150" />
-          <el-table-column prop="roles" label="IP:Port" align="center" width="150">
-            <template #default="scope">
-              <el-tag v-if="scope.row.roles === 'admin'" type="primary" effect="plain">admin</el-tag>
-              <el-tag v-else type="warning" effect="plain">{{ scope.row.roles }}</el-tag>
-            </template>
-          </el-table-column>
+          <el-table-column flex="left" prop="name" label="主机名称" align="center" width="150" />
+          <el-table-column prop="ip" label="IP:Port" align="center" width="150" />
           <el-table-column prop="phone" label="运行状态" align="center" width="250"></el-table-column>
           <el-table-column prop="email" label="授权凭证" align="center" width="180" />
           <el-table-column prop="status" label="主机状态" align="center">
@@ -167,7 +188,7 @@ watch([() => paginationData.currentPage, () => paginationData.pageSize], getTabl
             </template>
           </el-table-column>
           <el-table-column prop="createTime" width="180" label="上次登录" align="center" />
-          <el-table-column prop="createTime" width="180" label="创建时间" align="center" />
+          <el-table-column prop="createdTime" width="180" label="创建时间" align="center" />
           <el-table-column fixed="right" label="操作" width="250" align="center" flex="right">
             <template #default="scope">
               <el-button type="success" text bg size="small" @click="sshTerminal(scope.row)">SSH</el-button>
@@ -186,7 +207,7 @@ watch([() => paginationData.currentPage, () => paginationData.pageSize], getTabl
     </el-card>
 
     <!-- 新增/修改 -->
-    <el-dialog v-model="dialogVisible" :title="formData.id === undefined ? '新增用户' : '修改用户'" @closed="resetForm"
+    <!-- <el-dialog v-model="dialogVisible" :title="formData.id === undefined ? '新增用户' : '修改用户'" @closed="resetForm"
       width="30%">
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px" label-position="left">
         <el-form-item prop="username" label="用户名">
@@ -201,6 +222,17 @@ watch([() => paginationData.currentPage, () => paginationData.pageSize], getTabl
         <el-button type="primary" @click="handleCreateOrUpdate" :loading="loading">确认</el-button>
       </template>
     </el-dialog>
+ -->
+    <sftp-dialog ref="terminalDialogRef" :visibleMinimize="true">
+      <template #headerTitle="{ terminalInfo }">
+        {{ `${(terminalInfo.terminalId + '').slice(-2)}` }}
+        <el-divider direction="vertical" />
+        {{ `${terminalInfo.meta.selectAuthCert.username}@${terminalInfo.meta.ip}:${terminalInfo.meta.port}` }}
+        <el-divider direction="vertical" />
+        {{ terminalInfo.meta.name }}
+      </template>
+    </sftp-dialog>
+    <ssh-dialog />
   </div>
 </template>
 

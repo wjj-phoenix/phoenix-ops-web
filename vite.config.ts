@@ -39,7 +39,13 @@ export default ({ mode }: ConfigEnv): UserConfigExport => {
           ws: true,
           /** 是否允许跨域 */
           changeOrigin: true
-        }
+        },
+        "/api/devops": {
+          target: "http://localhost:19999",
+          ws: true,
+          /** 是否允许跨域 */
+          changeOrigin: true
+        },
       },
       /** 预热常用文件，提高初始页面加载速度 */
       warmup: {
