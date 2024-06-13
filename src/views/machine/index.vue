@@ -17,15 +17,19 @@ const terminalDialogRef: any = ref(null);
 
 //#region 增
 const DEFAULT_FORM_DATA: CreateOrUpdateTableRequestData = {
-  name: "",
-  ip: "",
+  name: '',
+  ip: '',
   port: 22,
-  operatingSystem: "",
+  operatingSystem: '',
   isVirtual: false,
-  remark: "",
-  createdUser: "",
-  createdTime: "",
-  hostUsers: [],
+  enabled: false,
+  remark: '',
+  createdUser: '',
+  createdTime: '',
+  latestTime: '',
+  updatedUser: '',
+  updatedTime: '',
+  // resourceAuth: null,
 }
 const dialogVisible = ref<boolean>(false)
 const formRef = ref<FormInstance | null>(null)
@@ -87,10 +91,12 @@ const searchData = reactive({
   phone: ""
 })
 
+
+
 const sshTerminal = (row: Machine) => {
-  console.log(row)
+  console.log('row', row)
   // emitter.emit('openSshTerminalDialog', true)
-  // const ac = row.selectAuthCert.name;
+  const ac = row.username;
   const terminalId = Date.now();
   /*
    调用了一个名为 terminalDialogRef 的组件的 open 方法，传入了一个包含多个属性的对象作为参数。其中，属性包括 terminalId、socketUrl、minTitle、minDesc 和 meta。
@@ -103,7 +109,7 @@ const sshTerminal = (row: Machine) => {
    */
   terminalDialogRef.value.open({
     terminalId,
-    // socketUrl: getMachineTerminalSocketUrl(ac),
+    socketUrl: getMachineTerminalSocketUrl(ac),
     minTitle: `${row.name} [${(terminalId + '').slice(-2)}]`, // 截取terminalId最后两位区分多个terminal
     // minDesc: `${row.selectAuthCert.username}@${row.ip}:${row.port} (${row.name})`,
     meta: row,
@@ -122,11 +128,13 @@ const getTableData = () => {
     page: paginationData.currentPage,
     limit: paginationData.pageSize,
     condition: undefined,
-  })
-    .then(({ data }) => {
+  }).then(({ data }) => {
       paginationData.total = data.total
       console.log('data', data)
       machines.value = data.rows
+      machines.value.forEach(item => {
+        item.username = item.resourceAuths[0].username
+      })
     })
     .catch(() => {
       machines.value = []
@@ -177,17 +185,38 @@ watch([() => paginationData.currentPage, () => paginationData.pageSize], getTabl
       <div class="table-wrapper">
         <el-table :data="machines" style="width: 100%">
           <el-table-column flex="left" type="selection" width="50" align="center" />
-          <el-table-column flex="left" prop="name" label="主机名称" align="center" width="150" />
+          <el-table-column flex="left" prop="name" label="主机名称" align="center" width="150">
+            <template #default="scope">
+              <el-button type="success" link>{{ scope.row.name }}</el-button>
+            </template>
+          </el-table-column>
           <el-table-column prop="ip" label="IP:Port" align="center" width="150" />
           <el-table-column prop="phone" label="运行状态" align="center" width="250"></el-table-column>
-          <el-table-column prop="email" label="授权凭证" align="center" width="180" />
-          <el-table-column prop="status" label="主机状态" align="center">
+          <el-table-column label="授权凭证" align="center" width="180">
             <template #default="scope">
-              <el-tag v-if="scope.row.status" type="success" effect="plain">启用</el-tag>
+              <el-select v-model="scope.row.username" style="width: 150px">
+                <el-option v-for="item in scope.row.resourceAuths" :key="item.id" :label="item.username"
+                  :disabled="item.isEnabled === false" :value="item.username">
+                  <span style="float: left">{{ item.username }}</span>
+                  <el-divider direction="vertical" />
+                  <span v-if="item.isPrivileged" style="float: right;color: red;font-size: 13px;"><el-tag type="danger"
+                      size="small">特权账号</el-tag></span>
+                  <span v-else style="float: right; color: blue; font-size: 13px;"><el-tag type="success"
+                      size="small">普通账号</el-tag></span>
+                </el-option>
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column prop="enabled" label="主机状态" align="center">
+            <template #default="scope">
+              <el-tag v-if="scope.row.enabled" type="success" effect="plain">启用</el-tag>
               <el-tag v-else type="danger" effect="plain">禁用</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="createTime" width="180" label="上次登录" align="center" />
+          <el-table-column prop="latestTime" width="180" label="上次登录" align="center" />
+          <el-table-column prop="updatedUser" width="180" label="修改用户" align="center" />
+          <el-table-column prop="updatedTime" width="180" label="修改时间" align="center" />
+          <el-table-column prop="createdUser" width="180" label="创建用户" align="center" />
           <el-table-column prop="createdTime" width="180" label="创建时间" align="center" />
           <el-table-column fixed="right" label="操作" width="250" align="center" flex="right">
             <template #default="scope">

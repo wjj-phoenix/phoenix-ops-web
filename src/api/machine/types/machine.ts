@@ -4,10 +4,14 @@ export interface CreateOrUpdateTableRequestData {
   port: number
   operatingSystem: string
   isVirtual: boolean
+  enabled: boolean
   remark: string
   createdUser: string
   createdTime: string
-  hostUsers: string[]
+  latestTime: string
+  updatedUser: string
+  updatedTime: string
+  // resourceAuth: ResourceAuth[]
 }
 
 export interface MachineRequestData {
@@ -26,10 +30,29 @@ export interface Machine {
   port: number
   operatingSystem: string
   isVirtual: boolean
+  enabled: boolean
   remark: string
   createdUser: string
   createdTime: string
-  hostUsers: string[]
+  latestTime: string
+  updatedUser: string
+  updatedTime: string
+  username: string
+  resourceAuths: ResourceAuth[]
+}
+
+export interface ResourceAuth {
+  id: number
+  name: string
+  username: string
+  password: string
+  isPrivileged: boolean
+  isEnabled: boolean
+  remark: string
+  createdUser: string
+  createdTime: string
+  latestConnTime: string
+  effectiveEndTime: string
 }
 
 export type MachineResponseData = ApiResponseData<{
