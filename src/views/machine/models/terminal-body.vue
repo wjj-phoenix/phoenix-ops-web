@@ -1,5 +1,5 @@
 <template>
-    <div id="terminal-body" :style="{ height }">
+    <div class="terminal-body" :style="{ height }">
         <div ref="terminalRef" class="terminal" />
 
         <!-- <TerminalSearch ref="terminalSearchRef" :search-addon="state.addon.search" @close="focus" /> -->
@@ -19,7 +19,6 @@ import { ref, nextTick, reactive, onMounted, onBeforeUnmount, watch } from 'vue'
 import { debounce } from 'lodash';
 import { TerminalStatus } from './common';
 import { useEventListener } from '@vueuse/core';
-import themes from './themes';
 import { TrzszFilter } from 'trzsz';
 
 const props = defineProps({
@@ -235,7 +234,36 @@ const getTerminalTheme = () => {
     console.log('terminalTheme', terminalTheme);
     // 如果不是自定义主题，则返回内置主题
     if (terminalTheme != 'custom') {
-        return themes[terminalTheme];
+        return {
+            foreground: '#c7c7c7',
+            background: '#000000',
+            cursor: '#c7c7c7',
+            selectionBackground: '#686868',
+
+            black: '#000000',
+            brightBlack: '#676767',
+
+            red: '#c91b00',
+            brightRed: '#ff6d67',
+
+            green: '#00c200',
+            brightGreen: '#5ff967',
+
+            yellow: '#c7c400',
+            brightYellow: '#fefb67',
+
+            blue: '#0225c7',
+            brightBlue: '#6871ff',
+
+            magenta: '#c930c7',
+            brightMagenta: '#ff76ff',
+
+            cyan: '#00c5c7',
+            brightCyan: '#5ffdff',
+
+            white: '#c7c7c7',
+            brightWhite: '#fffefe',
+        };
     }
 
     // 自定义主题
@@ -321,8 +349,9 @@ const getStatus = (): TerminalStatus => {
 
 defineExpose({ init, fitTerminal, focus, clear, close, getStatus, sendResize, write2Term, writeln2Term });
 </script>
-<style lang="scss">
-#terminal-body {
+
+<style lang="scss" scoped>
+.terminal-body {
     width: 100%;
 
     .terminal {

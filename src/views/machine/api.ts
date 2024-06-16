@@ -1,70 +1,59 @@
-import { pa } from "element-plus/es/locales.mjs"
+import Api from '@/common/Api';
 
-// 获取临时缓存
-export function getSession(key: string) {
-  let val: any = window.sessionStorage.getItem(key)
-  try {
-    return JSON.parse(val)
-  } catch (e) {
-    return val
-  }
-}
-
-const ClientIdKey = "m-clientId"
-
-/**
- *
- * @returns uuid
- */
-export function randomUuid() {
-  var S4 = function () {
-    return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1)
-  }
-  return S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4()
-}
-
-// 2. sessionStorage
-// 设置临时缓存
-export function setSession(key: string, val: any) {
-    if (typeof val == 'object') {
-        val = JSON.stringify(val);
-    }
-    window.sessionStorage.setItem(key, val);
-}
-
-// 获取客户端UUID
-export function getClientId(): string {
-  let uuid = getSession(ClientIdKey)
-  if (uuid == null) {
-    uuid = randomUuid()
-    setSession(ClientIdKey, uuid)
-  }
-  return uuid
-}
-
-// 获取永久缓存
-export function getLocal(key: string) {
-  let val: any = window.localStorage.getItem(key)
-  try {
-    return JSON.parse(val)
-  } catch (e) {
-    return val
-  }
-}
-
-const TokenKey = "m-token"
-
-// 获取请求token
-export function getToken(): string {
-  return getLocal(TokenKey)
-}
-
-// 组装客户端参数，包括 token 和 clientId
-export function joinClientParams(): string {
-  return `token=${getToken()}&clientId=${getClientId()}`
-}
+export const machineApi = {
+  // 获取权限列表
+  list: Api.newGet('/machines'),
+  tagList: Api.newGet('/machines/tags'),
+  getMachinePwd: Api.newGet('/machines/{id}/pwd'),
+  info: Api.newGet('/machines/{id}/sysinfo'),
+  stats: Api.newGet('/machines/{id}/stats'),
+  process: Api.newGet('/machines/{id}/process'),
+  // 终止进程
+  killProcess: Api.newDelete('/machines/{id}/process'),
+  users: Api.newGet('/machines/{id}/users'),
+  groups: Api.newGet('/machines/{id}/groups'),
+  testConn: Api.newPost('/machines/test-conn'),
+  // 保存按钮
+  saveMachine: Api.newPost('/machines'),
+  // 调整状态
+  changeStatus: Api.newPut('/machines/{id}/{status}'),
+  // 删除机器
+  del: Api.newDelete('/machines/{id}'),
+  scripts: Api.newGet('/machines/{machineId}/scripts'),
+  runScript: Api.newGet('/machines/scripts/{scriptId}/{ac}/run'),
+  saveScript: Api.newPost('/machines/{machineId}/scripts'),
+  deleteScript: Api.newDelete('/machines/{machineId}/scripts/{scriptId}'),
+  // 获取配置文件列表
+  files: Api.newGet('/machines/{id}/files'),
+  lsFile: Api.newGet('/machines/{machineId}/files/{fileId}/read-dir'),
+  dirSize: Api.newGet('/machines/{machineId}/files/{fileId}/dir-size'),
+  fileStat: Api.newGet('/machines/{machineId}/files/{fileId}/file-stat'),
+  rmFile: Api.newPost('/machines/{machineId}/files/{fileId}/remove'),
+  cpFile: Api.newPost('/machines/{machineId}/files/{fileId}/cp'),
+  renameFile: Api.newPost('/machines/{machineId}/files/{fileId}/rename'),
+  mvFile: Api.newPost('/machines/{machineId}/files/{fileId}/mv'),
+  // uploadFile: Api.newPost('/machines/{machineId}/files/{fileId}/upload?' + joinClientParams()),
+  fileContent: Api.newGet('/machines/{machineId}/files/{fileId}/read'),
+  downloadFile: Api.newGet('/machines/{machineId}/files/{fileId}/download'),
+  createFile: Api.newPost('/machines/{machineId}/files/{id}/create-file'),
+  // 修改文件内容
+  updateFileContent: Api.newPost('/machines/{machineId}/files/{id}/write'),
+  // 添加文件or目录
+  addConf: Api.newPost('/machines/{machineId}/files'),
+  // 删除配置的文件or目录
+  delConf: Api.newDelete('/machines/{machineId}/files/{id}'),
+  // 机器终端操作记录列表
+  termOpRecs: Api.newGet('/machines/{machineId}/term-recs'),
+  // 机器终端操作记录详情
+  termOpRec: Api.newGet('/machines/{id}/term-recs/{recId}'),
+};
 
 export function getMachineTerminalSocketUrl(authCertName: any) {
-  const params=`username=${authCertName}&machineId=1&${joinClientParams()}`
+  const params=`username=${authCertName}&machineId=1}`
   return `ws://localhost:19999/api/devops/machines/terminal?${params}`
+}
+
+export function getMachineDetailSocketUrl(authCertName: any) {
+  const params=`username=${authCertName}&machineId=1}`
+  return `ws://localhost:19999/api/devops/machines/detail?${params}`
 }

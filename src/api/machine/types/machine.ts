@@ -1,4 +1,4 @@
-export interface CreateOrUpdateTableRequestData {
+export interface MachineInfo {
   name: string
   ip: string
   port: number
@@ -25,6 +25,7 @@ export interface MachineRequestData {
 
 export interface Machine {
   id: number
+  code: string,
   name: string
   ip: string
   port: number
