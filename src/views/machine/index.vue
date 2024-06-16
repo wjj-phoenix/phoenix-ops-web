@@ -9,11 +9,13 @@ import { cloneDeep } from "lodash-es"
 import emitter from '@/utils/emitter';
 import SshDialog from './models/ssh-dialog.vue';
 import SftpDialog from './models/sftp-dialog.vue';
+import { getMachineTerminalSocketUrl } from "./api"
 
 const loading = ref<boolean>(false)
 const { paginationData, handleCurrentChange, handleSizeChange } = usePagination()
 
-const terminalDialogRef: any = ref(null);
+const sshTerminalDialogRef: any = ref(null);
+const sftpTerminalDialogRef: any = ref(null);
 
 //#region 增
 const DEFAULT_FORM_DATA: CreateOrUpdateTableRequestData = {
@@ -99,7 +101,7 @@ const sshTerminal = (row: Machine) => {
   const ac = row.username;
   const terminalId = Date.now();
   /*
-   调用了一个名为 terminalDialogRef 的组件的 open 方法，传入了一个包含多个属性的对象作为参数。其中，属性包括 terminalId、socketUrl、minTitle、minDesc 和 meta。
+   调用了一个名为 sshTerminalDialogRef 的组件的 open 方法，传入了一个包含多个属性的对象作为参数。其中，属性包括 terminalId、socketUrl、minTitle、minDesc 和 meta。
    * terminalId 表示终端的ID。
    * socketUrl 是通过调用函数 getMachineTerminalSocketUrl(ac) 得到的终端的socket URL。
    * minTitle 是一个字符串，由 ${row.name} [${(terminalId + '').slice(-2)}] 组成，用来描述终端的标题。
@@ -107,11 +109,11 @@ const sshTerminal = (row: Machine) => {
    * meta 是包含了一系列有关终端的其他元信息的对象，其中可能包含了关于终端的更多详细信息。
    * 总结：以上代码调用了终端对话框组件的 open 方法，并通过传递参数的方式展示了有关终端的信息，包括终端ID、socket URL、标题、概要信息以及其他详细信息。
    */
-  terminalDialogRef.value.open({
+   sshTerminalDialogRef.value.open({
     terminalId,
     socketUrl: getMachineTerminalSocketUrl(ac),
     minTitle: `${row.name} [${(terminalId + '').slice(-2)}]`, // 截取terminalId最后两位区分多个terminal
-    // minDesc: `${row.selectAuthCert.username}@${row.ip}:${row.port} (${row.name})`,
+    minDesc: `${row.username}@${row.ip}:${row.port} (${row.name})`,
     meta: row,
   });
 }
@@ -252,7 +254,7 @@ watch([() => paginationData.currentPage, () => paginationData.pageSize], getTabl
       </template>
     </el-dialog>
  -->
-    <sftp-dialog ref="terminalDialogRef" :visibleMinimize="true">
+    <sftp-dialog ref="sftpTerminalDialogRef" :visibleMinimize="true">
       <template #headerTitle="{ terminalInfo }">
         {{ `${(terminalInfo.terminalId + '').slice(-2)}` }}
         <el-divider direction="vertical" />
@@ -261,7 +263,7 @@ watch([() => paginationData.currentPage, () => paginationData.pageSize], getTabl
         {{ terminalInfo.meta.name }}
       </template>
     </sftp-dialog>
-    <ssh-dialog />
+    <ssh-dialog ref="sshTerminalDialogRef" />
   </div>
 </template>
 

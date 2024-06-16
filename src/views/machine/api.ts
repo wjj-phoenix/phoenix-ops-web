@@ -1,3 +1,5 @@
+import { pa } from "element-plus/es/locales.mjs"
+
 // 获取临时缓存
 export function getSession(key: string) {
   let val: any = window.sessionStorage.getItem(key)
@@ -63,5 +65,6 @@ export function joinClientParams(): string {
 }
 
 export function getMachineTerminalSocketUrl(authCertName: any) {
-  return `ws://localhost:19999/machines/terminal/${authCertName}?${joinClientParams()}`
+  const params=`username=${authCertName}&machineId=1&${joinClientParams()}`
+  return `ws://localhost:19999/api/devops/machines/terminal?${params}`
 }

@@ -2,6 +2,9 @@
 import emitter from '@/utils/emitter';
 import { ref, reactive, toRefs } from 'vue';
 import { ElMessageBox } from 'element-plus'
+import { defineExpose } from 'vue';
+import { ArrowDown, Close, FullScreen } from '@element-plus/icons-vue';
+import TerminalBody from './terminal-body.vue';
 
 let sshTerminalDialog = ref<boolean>(false)
 
@@ -31,8 +34,8 @@ machine: {} as any,
 fullscreen: false,
  */
 const state = reactive({
-    terminals: {} as any, // key -> terminalId  value -> terminal
-    minimizeTerminals: {} as any, // key -> terminalId  value -> 简易terminal
+  terminals: {} as any, // key -> terminalId  value -> terminal
+  minimizeTerminals: {} as any, // key -> terminalId  value -> 简易terminal
 });
 
 const { terminals, minimizeTerminals } = toRefs(state);
@@ -40,155 +43,243 @@ const { terminals, minimizeTerminals } = toRefs(state);
 const openTerminalRefs: any = {};
 
 enum TerminalStatus {
-    Error = -1,
-    NoConnected = 0,
-    Connected = 1,
-    Disconnected = 2,
+  Error = -1,
+  NoConnected = 0,
+  Connected = 1,
+  Disconnected = 2,
 }
 
 // 打开终端
 function open(terminalInfo: any, cmd: string = '') {
-    console.log('in terminal dialog open...',);
-    let terminalId = terminalInfo.terminalId;
-    if (!terminalId) {
-        terminalId = Date.now();
-    }
-    state.terminals[terminalId] = {
-        ...terminalInfo,
-        terminalId,
-        visible: true,
-        cmd,
-        status: TerminalStatus.NoConnected,
-    };
+  console.log('in terminal dialog open...',);
+  let terminalId = terminalInfo.terminalId;
+
+  console.log('terminalInfo', { ...terminalInfo });
+  state.terminals[terminalId] = {
+    ...terminalInfo,
+    terminalId,
+    visible: true,
+    cmd,
+    status: TerminalStatus.NoConnected,
+  };
 }
 
 // 关闭终端
 function close(terminalId: any) {
-    console.log('in terminal dialog close');
-    delete state.terminals[terminalId];
+  console.log('in terminal dialog close');
+  delete state.terminals[terminalId];
 
-    // 关闭终端，并删除终端ref
-    const terminalRef = openTerminalRefs[terminalId];
-    terminalRef && terminalRef.close();
-    delete openTerminalRefs[terminalId];
+  // 关闭终端，并删除终端ref
+  const terminalRef = openTerminalRefs[terminalId];
+  terminalRef && terminalRef.close();
+  delete openTerminalRefs[terminalId];
 
-    // emit('close', terminalId);
+  // emit('close', terminalId);
 }
+
+const reConnect = (terminalId: any) => {
+  openTerminalRefs[terminalId].init();
+};
+
+const setTerminalRef = (el: any, terminalId: any) => {
+  console.log('el: ', el);
+    if (terminalId) {
+        openTerminalRefs[terminalId] = el;
+    }
+};
+
+const handlerFullScreen = (terminal: any) => {
+  terminal.fullscreen = !terminal.fullscreen;
+  const terminalRef = openTerminalRefs[terminal.terminalId];
+  // fit
+  setTimeout(() => {
+    terminalRef?.fitTerminal();
+    terminalRef?.focus();
+  }, 250);
+};
+
+const getTerminalStatysStyleClass = (terminalId: any, status: any = null) => {
+    if (status == null) {
+        status = openTerminalRefs[terminalId].getStatus();
+    }
+    if (status == TerminalStatus.Connected) {
+        return 'terminal-status-success';
+    }
+
+    if (status == TerminalStatus.NoConnected) {
+        return 'terminal-status-no-connect';
+    }
+
+    return 'terminal-status-error';
+};
+
+function minimize(terminalId: number) {
+  console.log('in terminal dialog minimize: ', terminalId);
+
+  const terminal = state.terminals[terminalId];
+  if (!terminal) {
+    console.warn('不存在该终端信息: ', terminalId);
+    return;
+  }
+  terminal.visible = false;
+
+  const minTerminalInfo = {
+    terminalId: terminal.terminalId,
+    title: terminal.minTitle, // 截取terminalId最后两位区分多个terminal
+    desc: terminal.minDesc,
+    // styleClass: getTerminalStatysStyleClass(terminalId),
+  };
+  state.minimizeTerminals[terminalId] = minTerminalInfo;
+
+  // emitter('minimize', minTerminalInfo);
+}
+
+const terminalStatusChange = (terminalId: string, status: TerminalStatus) => {
+    const terminal = state.terminals[terminalId];
+    if (terminal) {
+        terminal.status = status;
+    }
+
+    const minTerminal = state.minimizeTerminals[terminalId];
+    if (!minTerminal) {
+        return;
+    }
+    minTerminal.styleClass = getTerminalStatysStyleClass(terminalId, status);
+};
+
+defineExpose({ open, close, minimize });
 </script>
 
 <template>
   <div class="terminal-dialog-container" v-for="openTerminal of terminals" :key="openTerminal.terminalId">
-    <el-dialog title="SSH终端" v-model="openTerminal.visible" top="32px" class="terminal-dialog" width="75%" :close-on-click-modal="false" :modal="true" :show-close="false">
-    <template #header>
-      <div class="terminal-title-wrapper">
-        <!-- 左侧 -->
-        <div class="title-left-fixed">
-          <!-- title信息 -->
-          <div>
-            <slot name="headerTitle" :terminalInfo="openTerminal">
-              {{ openTerminal.headerTitle }}
-            </slot>
+    <el-dialog title="SSH终端" v-model="openTerminal.visible" top="32px" class="terminal-dialog" width="75%"
+      :close-on-click-modal="false" :modal="true" :show-close="false">
+      <template #header>
+        <div class="terminal-title-wrapper">
+          <!-- 左侧 -->
+          <div class="title-left-fixed">
+            <!-- title信息 -->
+            <div>
+              <slot name="headerTitle" :terminalInfo="openTerminal">
+                {{ openTerminal.minDesc }}
+              </slot>
+            </div>
+          </div>
+
+          <!-- 右侧 -->
+          <div class="title-right-fixed">
+            <el-popconfirm @confirm="reConnect(openTerminal.terminalId)" title="确认重新连接?">
+              <template #reference>
+                <div class="mr15 pointer">
+                  <el-tag v-if="openTerminal.status == TerminalStatus.Connected" type="success" effect="light" round>
+                    已连接</el-tag>
+                  <el-tag v-else type="danger" effect="light" round> 未连接 </el-tag>
+                </div>
+              </template>
+            </el-popconfirm>
+
+            <el-popover placement="bottom" :width="200" trigger="hover">
+              <template #reference>
+                <ElIcon :size="20" class="pointer-icon mr10">
+                  <QuestionFilled />
+                </ElIcon>
+              </template>
+              <div>ctrl | command + f (搜索)</div>
+              <div class="mt5">点击连接状态可重连</div>
+            </el-popover>
+
+            <!-- <SvgIcon name="ArrowDown" v-if="props.visibleMinimize" @click="minimize(openTerminal.terminalId)" :size="20" class="pointer-icon mr10" title="最小化" /> -->
+            <el-icon @click="minimize(openTerminal.terminalId)" :size="20" class="pointer-icon mr10" title="最小化">
+              <ArrowDown />
+            </el-icon>
+
+            <!-- <ElIcon name="FullScreen" @click="handlerFullScreen(openTerminal)" :size="20" class="pointer-icon mr10" title="全屏|退出全屏" /> -->
+            <el-icon @click="handlerFullScreen(openTerminal)" name="FullScreen" class="pointer-icon mr10"
+              title="全屏|退出全屏" :size="20">
+              <FullScreen />
+            </el-icon>
+
+            <!-- <ElIcon name="Close" class="pointer-icon" @click="close(openTerminal.terminalId)" title="关闭" :size="20" /> -->
+            <el-icon class="pointer-icon" @click="close(openTerminal.terminalId)" title="关闭" :size="20">
+              <Close />
+            </el-icon>
           </div>
         </div>
-
-        <!-- 右侧 -->
-        <div class="title-right-fixed">
-          <!-- <el-popconfirm @confirm="reConnect(openTerminal.terminalId)" title="确认重新连接?">
-            <template #reference>
-              <div class="mr15 pointer">
-                <el-tag v-if="openTerminal.status == TerminalStatus.Connected" type="success" effect="light" round> 已连接</el-tag>
-                <el-tag v-else type="danger" effect="light" round> 未连接 </el-tag>
-              </div>
-            </template>
-          </el-popconfirm> -->
-
-          <!-- <el-popover placement="bottom" :width="200" trigger="hover">
-            <template #reference>
-              <SvgIcon name="QuestionFilled" :size="20" class="pointer-icon mr10" />
-            </template>
-            <div>ctrl | command + f (搜索)</div>
-            <div class="mt5">点击连接状态可重连</div>
-          </el-popover> -->
-
-          <!-- <SvgIcon name="ArrowDown" v-if="props.visibleMinimize" @click="minimize(openTerminal.terminalId)" :size="20" class="pointer-icon mr10" title="最小化" /> -->
-
-          <!-- <SvgIcon name="FullScreen" @click="handlerFullScreen(openTerminal)" :size="20" class="pointer-icon mr10" title="全屏|退出全屏" /> -->
-
-          <SvgIcon name="Close" class="pointer-icon" @click="close(openTerminal.terminalId)" title="关闭" :size="20" />
-        </div>
+      </template>
+      <div :style="{ height: `calc(100vh - ${openTerminal.fullscreen ? '49px' : '200px'})` }">
+        <TerminalBody @status-change="terminalStatusChange(openTerminal.terminalId, $event)" :ref="el => setTerminalRef(el, openTerminal.terminalId)" :cmd="openTerminal.cmd" :socket-url="openTerminal.socketUrl" />
       </div>
-    </template>
-  </el-dialog>
+    </el-dialog>
   </div>
 </template>
 
 <style scoped lang="scss">
 .terminal-dialog-container {
-    .el-dialog__header {
-        padding: 10px;
-    }
+  .el-dialog__header {
+    padding: 10px;
+  }
 
-    .el-dialog {
-        padding: 1px 1px;
-    }
+  .el-dialog {
+    padding: 1px 1px;
+  }
 
-    // 取消body最大高度，否则全屏有问题
-    .el-dialog__body {
-        max-height: 100% !important;
-        overflow: hidden !important;
-    }
+  // 取消body最大高度，否则全屏有问题
+  .el-dialog__body {
+    max-height: 100% !important;
+    overflow: hidden !important;
+  }
 
-    .el-overlay .el-overlay-dialog .el-dialog .el-dialog__body {
-        padding: 0px !important;
-    }
+  .el-overlay .el-overlay-dialog .el-dialog .el-dialog__body {
+    padding: 0px !important;
+  }
 
-    .terminal-title-wrapper {
-        display: flex;
-        justify-content: space-between;
-        font-size: 16px;
+  .terminal-title-wrapper {
+    display: flex;
+    justify-content: space-between;
+    font-size: 16px;
 
-        .title-right-fixed {
-            display: flex;
-            align-items: center;
-            font-size: 20px;
-            text-align: end;
-        }
+    .title-right-fixed {
+      display: flex;
+      align-items: center;
+      font-size: 20px;
+      text-align: end;
     }
+  }
 }
 
 .terminal-minimize-container {
-    position: absolute;
-    right: 16px;
-    bottom: 16px;
-    z-index: 10;
-    display: flex;
-    flex-wrap: wrap-reverse;
-    justify-content: flex-end;
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap-reverse;
+  justify-content: flex-end;
 
-    .terminal-minimize-item {
-        min-width: 120px;
-        // box-shadow: 0 3px 4px #dee2e6;
-        border-radius: 4px;
-        margin: 1px 1px;
-    }
+  .terminal-minimize-item {
+    min-width: 120px;
+    // box-shadow: 0 3px 4px #dee2e6;
+    border-radius: 4px;
+    margin: 1px 1px;
+  }
 
-    .terminal-status-error {
-        box-shadow: 0 3px 4px var(--el-color-danger);
-        border-color: var(--el-color-danger);
-    }
+  .terminal-status-error {
+    box-shadow: 0 3px 4px var(--el-color-danger);
+    border-color: var(--el-color-danger);
+  }
 
-    .terminal-status-no-connect {
-        box-shadow: 0 3px 4px var(--el-color-warning);
-        border-color: var(--el-color-warning);
-    }
+  .terminal-status-no-connect {
+    box-shadow: 0 3px 4px var(--el-color-warning);
+    border-color: var(--el-color-warning);
+  }
 
-    .terminal-status-success {
-        box-shadow: 0 3px 4px var(--el-color-success);
-        border-color: var(--el-color-success);
-    }
+  .terminal-status-success {
+    box-shadow: 0 3px 4px var(--el-color-success);
+    border-color: var(--el-color-success);
+  }
 
-    .el-card__body {
-        padding: 15px !important;
-    }
+  .el-card__body {
+    padding: 15px !important;
+  }
 }
 </style>
